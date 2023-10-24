@@ -1,4 +1,4 @@
- from __future__ import annotations
+from __future__ import annotations
 import argparse
 from ast import List
 import copy
@@ -497,8 +497,10 @@ class Game:
             if self.is_finished():
                 self.game_trace.append("New board configuration:")
                 self.game_trace.append(self.to_string())
-                return True, ""
-        return False, "invalid move"
+            return True, ""
+
+        else:
+            return False, "invalid move"
 
     def next_turn(self):
         """Transitions game to the next turn."""
