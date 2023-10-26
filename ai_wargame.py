@@ -324,6 +324,7 @@ class Game:
                 else:
                     self._defender_has_ai = False
 
+
     def mod_health(self, coord: Coord, health_delta: int):
         """Modify health of unit at Coord (positive or negative delta)."""
         target = self.get(coord)
