@@ -1,4 +1,4 @@
- from __future__ import annotations
+from __future__ import annotations
 import argparse
 from ast import List
 import copy
@@ -315,7 +315,7 @@ class Game:
     def remove_dead(self, coord: Coord):
         """Remove unit at Coord if dead."""
         unit = self.get(coord)
-        self.set(coord, None)
+
         if unit is not None and not unit.is_alive():
             self.set(coord, None)
             if unit.type == UnitType.AI:
@@ -604,13 +604,13 @@ class Game:
             for line in self.game_trace:
                 file.write(line + "\n")
 
-    def is_finished(self) -> bool:
+    def is_finished2(self) -> bool:
         # Game ends if 100 moves have been played or if any AI is destroyed
         if self.turns_played >= 100:
             print("Max number of turns (100) has passed")
             return self.turns_played >= 2 or not self._attacker_has_ai or not self._defender_has_ai
 
-    def has_winner(self) -> Player | None:
+    def has_winner2(self) -> Player | None:
         """Determines if there's a winner and returns the winner."""
         # If the game hasn't reached its end conditions yet, return None
         if not self.is_finished():
@@ -627,6 +627,28 @@ class Game:
         else:
             self.game_trace.append(f"{Player.Defender.name} wins because max turns (100) have passed")
             return Player.Defender
+
+    def is_finished(self) -> bool:
+        """Check if the game is over."""
+        return self.has_winner() is not None
+
+    def has_winner(self) -> Player | None:
+        """Check if the game is over and returns winner"""
+        if self.options.max_turns is not None and self.turns_played >= self.options.max_turns:
+            self.game_trace.append(f"{Player.Defender.name} wins because max turns (100) have passed")
+            return Player.Defender
+        if self._attacker_has_ai:
+            if self._defender_has_ai:
+                return None
+            else:
+                self.game_trace.append(f"{Player.Attacker.name} wins in {self.turns_played} turns")
+                return Player.Attacker
+        self.game_trace.append(f"{Player.Defender.name} wins in {self.turns_played} turns")
+        return Player.Defender
+
+
+
+
 
     def move_candidates(self) -> Iterable[CoordPair]:
         """Generate valid move candidates for the next player."""

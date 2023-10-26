@@ -15,8 +15,86 @@ E:  .   .  aP9 aV9 aA9
 
 turn #1
 Attacker
-move from E2 to D2
+move from E2 to E1
 turn #2
 Defender
 move from C0 to D0
-Defender wins because max turns (100) have passed
+turn #3
+Attacker
+move from E1 to E0
+turn #4
+Defender
+move from D0 to E0
+turn #5
+Attacker
+move from E0 to D0
+turn #6
+Defender
+move from E0 to E0
+turn #6
+Defender
+move from D0 to D0
+turn #6
+Defender
+move from B0 to B0
+turn #7
+Attacker
+move from D3 to D2
+turn #8
+Defender
+move from B1 to B1
+turn #9
+Attacker
+move from E0 to E0
+turn #9
+Attacker
+move from D2 to B2
+turn #9
+Attacker
+move from D2 to C2
+turn #10
+Defender
+move from A2 to A3
+turn #11
+Attacker
+move from C2 to C1
+turn #12
+Defender
+move from A0 to B0
+turn #13
+Attacker
+move from A3 to B3
+turn #13
+Attacker
+move from C4 to C4
+turn #14
+Defender
+move from B0 to B1
+turn #15
+Attacker
+move from C1 to B1
+turn #16
+Defender
+move from B1 to C1
+turn #17
+Attacker
+move from C1 to B1
+turn #18
+Defender
+move from B1 to C1
+turn #19
+Attacker
+move from C1 to B1
+Attacker wins in 18 turns
+New board configuration:
+Next player: Attacker
+Turns played: 18
+
+    0   1   2   3   4  
+A:  .  dT5  .  dF7  .  
+B:  .   .   .   .   .  
+C:  .  aF4  .   .   .  
+D: dF7  .   .   .  aV7 
+E: aP7  .   .  aV9 aA9 
+
+Attacker wins in 19 turns
