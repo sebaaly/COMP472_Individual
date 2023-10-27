@@ -280,7 +280,7 @@ class Game:
         # Record the initial game parameters and board configuration
         self.game_trace.append(f"timeout: {self.options.max_time}")
         self.game_trace.append(f"max number of turns: {self.options.max_turns}")
-        self.game_trace.append(f"alpha-beta: {'off' if self.options.alpha_beta else 'off'}")
+        self.game_trace.append(f"alpha-beta: {self.options.alpha_beta}")
 
         player1type = "Human" if self.options.game_type == GameType.AttackerVsDefender  \
                                  or self.options.game_type == GameType.AttackerVsComp else "Computer"
@@ -288,8 +288,6 @@ class Game:
                                  or self.options.game_type == GameType.CompVsDefender else "Computer"
 
         self.game_trace.append(f"player 1: {player1type} & player 2: {player2type}")
-        self.game_trace.append("Initial board configuration:")
-        self.game_trace.append(self.to_string())
 
     def clone(self) -> Game:
         """Make a new copy of a game for minimax recursion.
@@ -454,9 +452,7 @@ class Game:
 
     def perform_move(self, coords: CoordPair) -> Tuple[bool, str]:
         # Record the action at the start
-        self.game_trace.append(f"turn #{self.turns_played + 1}")
-        self.game_trace.append(f"{self.next_player.name}")
-        self.game_trace.append(f"move from {coords.src.to_string()} to {coords.dst.to_string()}")
+
 
         if self.is_valid_move(coords):
             moving_unit = self.get(coords.src)
@@ -499,9 +495,7 @@ class Game:
                 # not alive or if there's no unit at the destination
                 self.set(coords.dst, moving_unit)
                 self.set(coords.src, None)
-            if self.is_finished():
-                self.game_trace.append("New board configuration:")
-                self.game_trace.append(self.to_string())
+
             return True, ""
 
         else:
@@ -582,6 +576,9 @@ class Game:
                     print(f"Player {self.next_player.name}: ", end='')
                     print(result)
                     self.next_turn()
+                    self.game_trace.append(f"turn #{self.turns_played + 1}")
+                    self.game_trace.append(f"{self.next_player.name}")
+                    self.game_trace.append(f"move from {mv.src.to_string()} to {mv.dst.to_string()}")
                     break
                 else:
                     print("The move is not valid! Try again.")
@@ -595,6 +592,9 @@ class Game:
                 print(f"Computer {self.next_player.name}: ", end='')
                 print(result)
                 self.next_turn()
+                self.game_trace.append(f"turn #{self.turns_played + 1}")
+                self.game_trace.append(f"{self.next_player.name}")
+                self.game_trace.append(f"move from {mv.src.to_string()} to {mv.dst.to_string()}")
         return mv
 
     def player_units(self, player: Player) -> Iterable[Tuple[Coord, Unit]]:
@@ -625,9 +625,7 @@ class Game:
             if self._defender_has_ai:
                 return None
             else:
-                self.game_trace.append(f"{Player.Attacker.name} wins in {self.turns_played} turns")
                 return Player.Attacker
-        self.game_trace.append(f"{Player.Defender.name} wins in {self.turns_played} turns")
         return Player.Defender
 
 
@@ -705,22 +703,25 @@ class Game:
                 max_eval = float('-inf')
                 for move in node.move_candidates():
                     child_node = node.clone()
+                    self.stats.evaluations_per_depth[depth] = self.stats.evaluations_per_depth.get(depth, 0)+1
                     child_node.perform_move(move)
                     eval = minimax(child_node, depth - 1, False, alpha, beta)
                     max_eval = max(max_eval, eval)
                     alpha = max(alpha, eval)
-                    if beta <= alpha:
+                    if beta <= alpha and self.options.alpha_beta:
                         break
                 return max_eval
             else:
                 min_eval = float('inf')
                 for move in node.move_candidates():
                     child_node = node.clone()
+                    self.stats.evaluations_per_depth[depth] = self.stats.evaluations_per_depth.get(depth, 0)+1
+
                     child_node.perform_move(move)
                     eval = minimax(child_node, depth - 1, True, alpha, beta)
                     min_eval = min(min_eval, eval)
                     beta = min(beta, eval)
-                    if beta <= alpha:
+                    if beta <= alpha and self.options.alpha_beta:
                         break
                 return min_eval
 
@@ -741,7 +742,10 @@ class Game:
 
         if best_move is not None:
             print(f"Heuristic score: {best_value}")
-            print(f"Elapsed time: {elapsed_seconds:0.1f}s")
+            print(f"Elapsed time: {elapsed_seconds:0.2f}s")
+            self.game_trace.append(f"Heuristic score: {best_value}")
+            self.game_trace.append(f"Elapsed time: {elapsed_seconds:0.2f}s")
+
             return best_move
         else:
             return None
@@ -848,9 +852,12 @@ def main():
     while True:
         print()
         print(game)
+        game.game_trace.append("New board configuration:")
+        game.game_trace.append(game.to_string())
         winner = game.has_winner()
         if winner is not None:
             print(f"{winner.name} wins!\nGame Over!!")
+            game.game_trace.append(f"{winner.name} wins in {game.turns_played} turns")
             break
         if game.options.game_type == GameType.AttackerVsDefender:
             game.human_turn()
@@ -866,6 +873,21 @@ def main():
             else:
                 print("Computer doesn't know what to do!!!")
                 exit(1)
+    game.game_trace.append("Cumulative evals: ")
+    total_evals = 0
+    for v in game.stats.evaluations_per_depth.values():
+        total_evals = total_evals+v
+    game.game_trace.append(str(total_evals))
+
+    game.game_trace.append("Cumulative evals by depth: ")
+    for k in sorted(game.stats.evaluations_per_depth.keys()):
+        game.game_trace.append(f"{game.options.max_depth-k}:{game.stats.evaluations_per_depth[k]}")
+    game.game_trace.append("Cumulative % evals by depth: ")
+    for k in sorted(game.stats.evaluations_per_depth.keys()):
+        game.game_trace.append(f"{game.options.max_depth-k}:{game.stats.evaluations_per_depth[k]/total_evals*100:0.2f}%")
+    treesize = total_evals
+    nonleaf_nodes = total_evals-game.stats.evaluations_per_depth[1]
+    game.game_trace.append(f"Average Branching factor:{treesize/nonleaf_nodes:0.2f}")
 
     game.write_game_trace_to_file(file_name)
 
