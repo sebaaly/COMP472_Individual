@@ -234,6 +234,7 @@ class Options:
     max_turns: int | None = 100
     randomize_moves: bool = True
     broker: str | None = None
+    heuristic: int | None = 0
 
 
 ##############################################################################################################
@@ -288,7 +289,7 @@ class Game:
                                  or self.options.game_type == GameType.CompVsDefender else "Computer"
 
         self.game_trace.append(f"player 1: {player1type} & player 2: {player2type}")
-
+        self.game_trace.append(f"heuristic: {self.options.heuristic}")
     def clone(self) -> Game:
         """Make a new copy of a game for minimax recursion.
 
@@ -675,7 +676,7 @@ class Game:
         """Suggest the next move using minimax alpha beta with the provided heuristic."""
         start_time = datetime.now()
 
-        def evaluate_position(game):
+        def evaluate_position_0(game):
             # Heuristic function based on the provided formula
             attacker = Player.Attacker
             defender = Player.Defender
@@ -695,9 +696,51 @@ class Game:
             return (3 * VP1 + 3 * TP1 + 3 * FP1 + 3 * PP1 + 9999 * AIP1) - (
                         3 * VP2 + 3 * TP2 + 3 * FP2 + 3 * PP2 + 9999 * AIP2)
 
+        def evaluate_position_1(game):
+            attacker = Player.Attacker
+            defender = Player.Defender
+
+            VP1 = sum(1 for _, unit in game.player_units(attacker) if unit.type == UnitType.Virus)
+            TP1 = sum(1 for _, unit in game.player_units(attacker) if unit.type == UnitType.Tech)
+            FP1 = sum(1 for _, unit in game.player_units(attacker) if unit.type == UnitType.Firewall)
+            PP1 = sum(1 for _, unit in game.player_units(attacker) if unit.type == UnitType.Program)
+            AIP1 = sum(1 for _, unit in game.player_units(attacker) if unit.type == UnitType.AI)
+
+            VP2 = sum(1 for _, unit in game.player_units(defender) if unit.type == UnitType.Virus)
+            TP2 = sum(1 for _, unit in game.player_units(defender) if unit.type == UnitType.Tech)
+            FP2 = sum(1 for _, unit in game.player_units(defender) if unit.type == UnitType.Firewall)
+            PP2 = sum(1 for _, unit in game.player_units(defender) if unit.type == UnitType.Program)
+            AIP2 = sum(1 for _, unit in game.player_units(defender) if unit.type == UnitType.AI)
+
+            return (9 * VP1 + 1 * TP1 + 1 * FP1 + 3 * PP1 + 9999 * AIP1) - (
+                    9 * VP2 + 1 * TP2 + 1 * FP2 + 3 * PP2 + 9999 * AIP2)
+
+        def evaluate_position_2(game):
+            attacker = Player.Attacker
+            defender = Player.Defender
+
+            VP1 = sum(unit.health for _, unit in game.player_units(attacker) if unit.type == UnitType.Virus)
+            TP1 = sum(unit.health for _, unit in game.player_units(attacker) if unit.type == UnitType.Tech)
+            FP1 = sum(unit.health for _, unit in game.player_units(attacker) if unit.type == UnitType.Firewall)
+            PP1 = sum(unit.health for _, unit in game.player_units(attacker) if unit.type == UnitType.Program)
+            AIP1 = sum(unit.health for _, unit in game.player_units(attacker) if unit.type == UnitType.AI)
+
+            VP2 = sum(unit.health for _, unit in game.player_units(defender) if unit.type == UnitType.Virus)
+            TP2 = sum(unit.health for _, unit in game.player_units(defender) if unit.type == UnitType.Tech)
+            FP2 = sum(unit.health for _, unit in game.player_units(defender) if unit.type == UnitType.Firewall)
+            PP2 = sum(unit.health for _, unit in game.player_units(defender) if unit.type == UnitType.Program)
+            AIP2 = sum(unit.health for _, unit in game.player_units(defender) if unit.type == UnitType.AI)
+
+            return (9 * VP1 + 1 * TP1 + 1 * FP1 + 3 * PP1 + 9999 * AIP1) - (
+                    9 * VP2 + 1 * TP2 + 1 * FP2 + 3 * PP2 + 9999 * AIP2)
+
         def minimax(node, depth, maximizing_player, alpha, beta):
             if depth == 0 or node.is_finished():
-                return evaluate_position(node)
+                if self.options.heuristic == 0:
+                    return evaluate_position_0(node)
+                if self.options.heuristic == 1:
+                    return evaluate_position_1(node)
+                return evaluate_position_2(node)
 
             if maximizing_player:
                 max_eval = float('-inf')
@@ -813,6 +856,8 @@ def main():
     parser.add_argument('--game_type', type=str, default="manual", help='game type: auto|attacker|defender|manual')
     parser.add_argument('--broker', type=str, help='play via a game broker')
     parser.add_argument('--alpha_beta', type=bool, default=False, help='use alpha-beta pruning')
+    parser.add_argument('--heuristic', type=int, default=0, help='heuristic function: 0|1|2')
+
     args = parser.parse_args()
 
     # Construct the file name
@@ -844,7 +889,10 @@ def main():
         options.broker = args.broker
     if args.max_turns is not None:
         options.max_turns = args.max_turns
-
+    if args.alpha_beta is not None:
+        options.alpha_beta = args.alpha_beta
+    if args.heuristic is not None:
+        options.heuristic = args.heuristic
     # create a new game
     game = Game(options=options)
 
