@@ -278,12 +278,16 @@ class Game:
         self.set(Coord(md - 1, md - 1), Unit(player=Player.Attacker, type=UnitType.Firewall))
 
         # Record the initial game parameters and board configuration
-        self.game_trace.append(
-            f"timeout: {'currently unimplemented'}")
+        self.game_trace.append(f"timeout: {self.options.max_time}")
         self.game_trace.append(f"max number of turns: {self.options.max_turns}")
         self.game_trace.append(f"alpha-beta: {'off' if self.options.alpha_beta else 'off'}")
-        self.game_trace.append(
-            f"player 1: {'Human'} & player 2: {'Human'}")
+
+        player1type = "Human" if self.options.game_type == GameType.AttackerVsDefender  \
+                                 or self.options.game_type == GameType.AttackerVsComp else "Computer"
+        player2type = "Human" if self.options.game_type == GameType.AttackerVsDefender \
+                                 or self.options.game_type == GameType.CompVsDefender else "Computer"
+
+        self.game_trace.append(f"player 1: {player1type} & player 2: {player2type}")
         self.game_trace.append("Initial board configuration:")
         self.game_trace.append(self.to_string())
 
@@ -605,29 +609,8 @@ class Game:
             for line in self.game_trace:
                 file.write(line + "\n")
 
-    def is_finished2(self) -> bool:
-        # Game ends if 100 moves have been played or if any AI is destroyed
-        if self.turns_played >= 100:
-            print("Max number of turns (100) has passed")
-            return self.turns_played >= 2 or not self._attacker_has_ai or not self._defender_has_ai
 
-    def has_winner2(self) -> Player | None:
-        """Determines if there's a winner and returns the winner."""
-        # If the game hasn't reached its end conditions yet, return None
-        if not self.is_finished():
-            return None
-        # Check if the attacker's AI is destroyed
-        if not self._attacker_has_ai:
-            self.game_trace.append(f"{Player.Defender.name} wins in {self.turns_played} turns")
-            return Player.Defender
-        # Check if the defender's AI is destroyed
-        elif not self._defender_has_ai:
-            self.game_trace.append(f"{Player.Attacker.name} wins in {self.turns_played} turns")
-            return Player.Attacker
-        # If neither AI is destroyed and 10 turns have been played, the defender wins
-        else:
-            self.game_trace.append(f"{Player.Defender.name} wins because max turns (100) have passed")
-            return Player.Defender
+
 
     def is_finished(self) -> bool:
         """Check if the game is over."""
@@ -672,7 +655,7 @@ class Game:
         else:
             return (0, None, 0)
 
-    def suggest_move(self) -> CoordPair | None:
+    def suggest_move2(self) -> CoordPair | None:
         """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!"""
         start_time = datetime.now()
         (score, move, avg_depth) = self.random_move()
@@ -689,6 +672,79 @@ class Game:
             print(f"Eval perf.: {total_evals / self.stats.total_seconds / 1000:0.1f}k/s")
         print(f"Elapsed time: {elapsed_seconds:0.1f}s")
         return move
+
+    def suggest_move(self) -> CoordPair | None:
+        """Suggest the next move using minimax alpha beta with the provided heuristic."""
+        start_time = datetime.now()
+
+        def evaluate_position(game):
+            # Heuristic function based on the provided formula
+            attacker = Player.Attacker
+            defender = Player.Defender
+
+            VP1 = sum(1 for _, unit in game.player_units(attacker) if unit.type == UnitType.Virus)
+            TP1 = sum(1 for _, unit in game.player_units(attacker) if unit.type == UnitType.Tech)
+            FP1 = sum(1 for _, unit in game.player_units(attacker) if unit.type == UnitType.Firewall)
+            PP1 = sum(1 for _, unit in game.player_units(attacker) if unit.type == UnitType.Program)
+            AIP1 = sum(1 for _, unit in game.player_units(attacker) if unit.type == UnitType.AI)
+
+            VP2 = sum(1 for _, unit in game.player_units(defender) if unit.type == UnitType.Virus)
+            TP2 = sum(1 for _, unit in game.player_units(defender) if unit.type == UnitType.Tech)
+            FP2 = sum(1 for _, unit in game.player_units(defender) if unit.type == UnitType.Firewall)
+            PP2 = sum(1 for _, unit in game.player_units(defender) if unit.type == UnitType.Program)
+            AIP2 = sum(1 for _, unit in game.player_units(defender) if unit.type == UnitType.AI)
+
+            return (3 * VP1 + 3 * TP1 + 3 * FP1 + 3 * PP1 + 9999 * AIP1) - (
+                        3 * VP2 + 3 * TP2 + 3 * FP2 + 3 * PP2 + 9999 * AIP2)
+
+        def minimax(node, depth, maximizing_player, alpha, beta):
+            if depth == 0 or node.is_finished():
+                return evaluate_position(node)
+
+            if maximizing_player:
+                max_eval = float('-inf')
+                for move in node.move_candidates():
+                    child_node = node.clone()
+                    child_node.perform_move(move)
+                    eval = minimax(child_node, depth - 1, False, alpha, beta)
+                    max_eval = max(max_eval, eval)
+                    alpha = max(alpha, eval)
+                    if beta <= alpha:
+                        break
+                return max_eval
+            else:
+                min_eval = float('inf')
+                for move in node.move_candidates():
+                    child_node = node.clone()
+                    child_node.perform_move(move)
+                    eval = minimax(child_node, depth - 1, True, alpha, beta)
+                    min_eval = min(min_eval, eval)
+                    beta = min(beta, eval)
+                    if beta <= alpha:
+                        break
+                return min_eval
+
+        best_move = None
+        best_value = float('-inf')
+        depth = self.options.max_depth
+
+        for move in self.move_candidates():
+            child_node = self.clone()
+            child_node.perform_move(move)
+            eval = minimax(child_node, depth - 1, False, float('-inf'), float('inf'))
+            if eval > best_value:
+                best_value = eval
+                best_move = move
+
+        elapsed_seconds = (datetime.now() - start_time).total_seconds()
+        self.stats.total_seconds += elapsed_seconds
+
+        if best_move is not None:
+            print(f"Heuristic score: {best_value}")
+            print(f"Elapsed time: {elapsed_seconds:0.1f}s")
+            return best_move
+        else:
+            return None
 
     def post_move_to_broker(self, move: CoordPair):
         """Send a move to the game broker."""
@@ -747,7 +803,7 @@ def main():
     parser = argparse.ArgumentParser(
         prog='ai_wargame',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--max_depth', type=int, help='maximum search depth')
+    parser.add_argument('--max_depth', type=int, default=3, help='maximum search depth')
     parser.add_argument('--max_time', type=float, help='maximum search time')
     parser.add_argument('--max_turns', type=float, help='maximum number of turn for a game')
     parser.add_argument('--game_type', type=str, default="manual", help='game type: auto|attacker|defender|manual')
